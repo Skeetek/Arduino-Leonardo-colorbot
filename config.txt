@@ -1,0 +1,10 @@
+TOGGLE_KEY = F1
+XFOV = 60
+YFOV = 60
+INGAME_SENSITIVITY = 0.4
+SERIAL_PORT_SEARCH = Auto
+# https://learn.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes - Find code here.
+TOGGLE_KEY_MOUSE = 0x02
+
+# Hashtags are comments (per-line)
+FORCE_COM_PORT = COM9

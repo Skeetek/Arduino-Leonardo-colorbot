@@ -1,0 +1,1 @@
+pyinstaller --icon=valo.ico main.py --onefile
