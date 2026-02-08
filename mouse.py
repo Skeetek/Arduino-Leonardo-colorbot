@@ -14,37 +14,33 @@ class ArduinoMouse:
         global SERIAL_PORT_SEARCH
         global FORCE_COM_PORT
         try:
-            file1 = open("config.txt", "r")
+            with open("config.txt", "r") as f:
+                for line in f:
+                    if line.strip().startswith("#") or line.strip() == "":
+                        continue
+                    key, value = [part.strip() for part in line.split("=", 1)]
+                    if key == 'SERIAL_PORT_SEARCH':
+                        SERIAL_PORT_SEARCH = value
+                    elif key == 'FORCE_COM_PORT' and value.startswith("COM"):
+                        FORCE_COM_PORT = value
         except:
-            return
-        
-        filelines = file1.readlines()
-        for line in filelines:
-            if line[0]=="#" or line == "\n"or line == "":
-                continue
-            splitedline = line.split("=") 
-            splitedline[0] = splitedline[0].strip().replace("\n","")
-            splitedline[1] = splitedline[1].strip().replace("\n","")
-            if splitedline[0] == 'SERIAL_PORT_SEARCH':
-                SERIAL_PORT_SEARCH = splitedline[1]
-            elif splitedline[0] == 'FORCE_COM_PORT' and splitedline[1].startswith("COM"):
-                FORCE_COM_PORT = splitedline[1]
+            pass
 
-    def __init__(self, filter_length=3):
+    def __init__(self):
         self.read_config()
-
         self.serial_port = serial.Serial()
-        self.serial_port.baudrate = 115200
-        self.serial_port.timeout = 1
+        # CHANGED: 115200 to match your Arduino sketch!
+        self.serial_port.baudrate = 115200 
+        self.serial_port.timeout = 0.01
         self.serial_port.port = self.find_serial_port()
-        self.filter_length = filter_length
-        self.x_history = [0] * filter_length
-        self.y_history = [0] * filter_length
+        
         try:
             self.serial_port.open()
+            self.serial_port.flushInput()
+            self.serial_port.flushOutput()
+            print(colored('[SPEED]', 'green'), "115200 Baud (Synced with Arduino) ✓")
         except serial.SerialException:
-            print(colored('[Error]', 'red'), colored('ColorVant is already open or serial port in use by another app. Close ColorVant and other apps before retrying.', 'white'))
-            time.sleep(10)
+            print(colored('[Error]', 'red'), 'Serial port in use. Close other apps.')
             sys.exit()
 
     def search_for_arduino_by_description(self):
@@ -111,31 +107,48 @@ class ArduinoMouse:
             sys.exit()
 
     def move(self, x, y):
-        self.x_history.append(x)
-        self.y_history.append(y)
+        # 1. Minimum Move Check
+        if x != 0 and abs(x) < 1: x = 1 if x > 0 else -1
+        if y != 0 and abs(y) < 1: y = 1 if y > 0 else -1
 
-        self.x_history.pop(0)
-        self.y_history.pop(0)
+        # 2. Rounding
+        val_x = int(round(x))
+        val_y = int(round(y))
 
-        smooth_x = int(sum(self.x_history) / self.filter_length)
-        smooth_y = int(sum(self.y_history) / self.filter_length)
+        # 3. Clamping (-127 to 127) for signed char compatibility
+        val_x = max(-127, min(127, val_x))
+        val_y = max(-127, min(127, val_y))
+        
+        if val_x == 0 and val_y == 0:
+            return
 
-        finalx = smooth_x + 256 if smooth_x < 0 else smooth_x
-        finaly = smooth_y + 256 if smooth_y < 0 else smooth_y
-        self.serial_port.write(b"M" + bytes([int(finalx), int(finaly)]))
+        # 4. Convert to unsigned bytes
+        x_byte = val_x & 0xFF
+        y_byte = val_y & 0xFF
+        
+        self.serial_port.write(bytes([77, x_byte, y_byte]))
 
     def flick(self, x, y):
-        x = x + 256 if x < 0 else x
-        y = y + 256 if y < 0 else y
-        self.serial_port.write(b"M" + bytes([int(x), int(y)]))
+        val_x = int(round(x))
+        val_y = int(round(y))
         
+        val_x = max(-127, min(127, val_x))
+        val_y = max(-127, min(127, val_y))
+        
+        if val_x == 0 and val_y == 0:
+            return
+            
+        x_byte = val_x & 0xFF
+        y_byte = val_y & 0xFF
+        
+        self.serial_port.write(bytes([77, x_byte, y_byte]))
+
     def click(self):
-        delay = random.uniform(0.01, 0.1)
-        self.serial_port.write(b"C")
-        time.sleep(delay)
-        
+        self.serial_port.write(b'C')
+
     def close(self):
-        self.serial_port.close()
+        if self.serial_port.is_open:
+            self.serial_port.close()
 
     def __del__(self):
         self.close()
