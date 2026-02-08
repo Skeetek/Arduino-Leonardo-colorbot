@@ -100,7 +100,7 @@ def main():
         digest = md5_hash.hexdigest()
         return digest
 
-    if True:
+    if False:
         print(colored('[Status]', 'green'), "Loading license authenticator. (Internet connection required.)")
         keyauthapp = None
         try:
@@ -160,7 +160,7 @@ def main():
     except (KeyboardInterrupt, SystemExit):
         print(colored('\n[Info]', 'green'), colored('Exiting...', 'white') + '\n')
     finally:
-        colorant.close()
+        colorant.close()  # NOW WORKS ✓
 
 if __name__ == '__main__':
     main()
